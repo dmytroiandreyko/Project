@@ -26,12 +26,17 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
@@ -50,27 +55,61 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen() {
+    var selectedCategory by remember { mutableStateOf<PlaceCategory?>(null) }
+
+    val filteredPlaces = if (selectedCategory == null) {
+        samplePlaces
+    } else {
+        samplePlaces.filter { it.category == selectedCategory }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(title = { Text("Міста й пам'ятки") })
         }
     ) { padding ->
-        PlacesList(places = samplePlaces, padding = padding)
+        Column(modifier = Modifier.padding(padding)) {
+            CategoryFilterRow(
+                categories = PlaceCategory.entries,
+                selected = selectedCategory,
+                onSelect = { selectedCategory = it }
+            )
+            if (filteredPlaces.isEmpty()) {
+                EmptyState()
+            } else {
+                PlacesList(places = filteredPlaces)
+            }
+        }
     }
 }
 
 @Composable
-fun PlacesList(places: List<Place>, padding: PaddingValues) {
+fun PlacesList(places: List<Place>) {
     LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(padding),
+        modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         items(places) { place ->
             PlaceCard(place)
         }
+    }
+}
+
+@Composable
+fun EmptyState() {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "У цій категорії поки нічого немає",
+            style = MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Center
+        )
     }
 }
 

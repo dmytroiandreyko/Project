@@ -27,9 +27,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -39,6 +36,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -54,14 +53,8 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen() {
-    var selectedCategory by remember { mutableStateOf<PlaceCategory?>(null) }
-
-    val filteredPlaces = if (selectedCategory == null) {
-        samplePlaces
-    } else {
-        samplePlaces.filter { it.category == selectedCategory }
-    }
+fun MainScreen(viewModel: MainViewModel = viewModel()) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -70,14 +63,14 @@ fun MainScreen() {
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
             CategoryFilterRow(
-                categories = PlaceCategory.entries,
-                selected = selectedCategory,
-                onSelect = { selectedCategory = it }
+                categories = uiState.categories,
+                selected = uiState.selectedCategory,
+                onSelect = viewModel::onCategorySelected
             )
-            if (filteredPlaces.isEmpty()) {
+            if (uiState.places.isEmpty()) {
                 EmptyState()
             } else {
-                PlacesList(places = filteredPlaces)
+                PlacesList(places = uiState.places)
             }
         }
     }

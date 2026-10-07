@@ -45,7 +45,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             MaterialTheme {
-                MainScreen()
+                AppNavHost()
             }
         }
     }
@@ -53,7 +53,10 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen(viewModel: MainViewModel = viewModel()) {
+fun MainScreen(
+    onItemClick: (Place) -> Unit,
+    viewModel: MainViewModel = viewModel()
+) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     Scaffold(
@@ -70,21 +73,21 @@ fun MainScreen(viewModel: MainViewModel = viewModel()) {
             if (uiState.places.isEmpty()) {
                 EmptyState()
             } else {
-                PlacesList(places = uiState.places)
+                PlacesList(places = uiState.places, onItemClick = onItemClick)
             }
         }
     }
 }
 
 @Composable
-fun PlacesList(places: List<Place>) {
+fun PlacesList(places: List<Place>, onItemClick: (Place) -> Unit) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         items(places) { place ->
-            PlaceCard(place)
+            PlaceCard(place = place, onClick = { onItemClick(place) })
         }
     }
 }
@@ -107,8 +110,9 @@ fun EmptyState() {
 }
 
 @Composable
-fun PlaceCard(place: Place) {
+fun PlaceCard(place: Place, onClick: () -> Unit) {
     Card(
+        onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)

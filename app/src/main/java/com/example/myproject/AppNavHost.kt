@@ -9,6 +9,7 @@ import androidx.navigation.navArgument
 
 object Routes {
     const val MAIN = "main"
+    const val SETTINGS = "settings"
     const val PLACE_ID_ARG = "placeId"
     const val DETAILS = "details/{$PLACE_ID_ARG}"
 
@@ -22,8 +23,12 @@ fun AppNavHost() {
     NavHost(navController = navController, startDestination = Routes.MAIN) {
         composable(Routes.MAIN) {
             MainScreen(
-                onItemClick = { place -> navController.navigate(Routes.details(place.id)) }
+                onItemClick = { place -> navController.navigate(Routes.details(place.id)) },
+                onSettingsClick = { navController.navigate(Routes.SETTINGS) }
             )
+        }
+        composable(Routes.SETTINGS) {
+            SettingsScreen(onBackClick = { navController.popBackStack() })
         }
         composable(
             route = Routes.DETAILS,

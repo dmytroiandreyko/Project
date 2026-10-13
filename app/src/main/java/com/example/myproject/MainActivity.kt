@@ -18,9 +18,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -55,13 +59,24 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainScreen(
     onItemClick: (Place) -> Unit,
+    onSettingsClick: () -> Unit,
     viewModel: MainViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Міста й пам'ятки") })
+            TopAppBar(
+                title = { Text("Міста й пам'ятки") },
+                actions = {
+                    IconButton(onClick = onSettingsClick) {
+                        Icon(
+                            imageVector = Icons.Filled.Settings,
+                            contentDescription = "Налаштування"
+                        )
+                    }
+                }
+            )
         }
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
@@ -73,21 +88,33 @@ fun MainScreen(
             if (uiState.places.isEmpty()) {
                 EmptyState()
             } else {
-                PlacesList(places = uiState.places, onItemClick = onItemClick)
+                PlacesList(
+                    places = uiState.places,
+                    showDetails = uiState.showDetails,
+                    onItemClick = onItemClick
+                )
             }
         }
     }
 }
 
 @Composable
-fun PlacesList(places: List<Place>, onItemClick: (Place) -> Unit) {
+fun PlacesList(
+    places: List<Place>,
+    showDetails: Boolean,
+    onItemClick: (Place) -> Unit
+) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         items(places) { place ->
-            PlaceCard(place = place, onClick = { onItemClick(place) })
+            PlaceCard(
+                place = place,
+                showDetails = showDetails,
+                onClick = { onItemClick(place) }
+            )
         }
     }
 }
@@ -110,7 +137,7 @@ fun EmptyState() {
 }
 
 @Composable
-fun PlaceCard(place: Place, onClick: () -> Unit) {
+fun PlaceCard(place: Place, showDetails: Boolean, onClick: () -> Unit) {
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
@@ -138,24 +165,26 @@ fun PlaceCard(place: Place, onClick: () -> Unit) {
                         .padding(horizontal = 12.dp, vertical = 6.dp)
                 )
             }
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row {
+            if (showDetails) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row {
+                        Text(
+                            text = "Опис: ",
+                            style = MaterialTheme.typography.labelLarge
+                        )
+                        Text(
+                            text = place.description,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
                     Text(
-                        text = "Опис: ",
-                        style = MaterialTheme.typography.labelLarge
-                    )
-                    Text(
-                        text = place.description,
-                        style = MaterialTheme.typography.bodyMedium
+                        text = place.excerpt,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 8.dp)
                     )
                 }
-                Text(
-                    text = place.excerpt,
-                    style = MaterialTheme.typography.bodySmall,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
             }
         }
     }

@@ -4,7 +4,6 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,10 +21,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -36,18 +37,28 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil3.ImageLoader
+import coil3.compose.AsyncImage
+import coil3.compose.setSingletonImageLoaderFactory
+import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
+            setSingletonImageLoaderFactory { context ->
+                ImageLoader.Builder(context)
+                    .components {
+                        add(OkHttpNetworkFetcherFactory(callFactory = { WikiNetwork.okHttpClient }))
+                    }
+                    .build()
+            }
             MaterialTheme {
                 AppNavHost()
             }
@@ -85,14 +96,19 @@ fun MainScreen(
                 selected = uiState.selectedCategory,
                 onSelect = viewModel::onCategorySelected
             )
-            if (uiState.places.isEmpty()) {
-                EmptyState()
-            } else {
-                PlacesList(
-                    places = uiState.places,
-                    showDetails = uiState.showDetails,
-                    onItemClick = onItemClick
+            when {
+                uiState.isLoading -> LoadingState()
+                uiState.errorMessage != null -> ErrorState(
+                    message = uiState.errorMessage.orEmpty(),
+                    onRetry = viewModel::onRetry
                 )
+                uiState.places.isEmpty() -> EmptyState()
+                else ->
+                    PlacesList(
+                        places = uiState.places,
+                        showDetails = uiState.showDetails,
+                        onItemClick = onItemClick
+                    )
             }
         }
     }
@@ -109,12 +125,45 @@ fun PlacesList(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        items(places) { place ->
+        items(places, key = { it.id }) { place ->
             PlaceCard(
                 place = place,
                 showDetails = showDetails,
                 onClick = { onItemClick(place) }
             )
+        }
+    }
+}
+
+@Composable
+fun LoadingState() {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        CircularProgressIndicator()
+    }
+}
+
+@Composable
+fun ErrorState(message: String, onRetry: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Center
+        )
+        OutlinedButton(
+            onClick = onRetry,
+            modifier = Modifier.padding(top = 16.dp)
+        ) {
+            Text("Спробувати ще раз")
         }
     }
 }
@@ -146,13 +195,14 @@ fun PlaceCard(place: Place, showDetails: Boolean, onClick: () -> Unit) {
     ) {
         Column {
             Box {
-                Image(
-                    painter = painterResource(id = place.imageRes),
+                AsyncImage(
+                    model = place.imageUrl,
                     contentDescription = place.title,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(180.dp)
-                        .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)),
+                        .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
                     contentScale = ContentScale.Crop
                 )
                 Text(
@@ -167,15 +217,17 @@ fun PlaceCard(place: Place, showDetails: Boolean, onClick: () -> Unit) {
             }
             if (showDetails) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Row {
-                        Text(
-                            text = "Опис: ",
-                            style = MaterialTheme.typography.labelLarge
-                        )
-                        Text(
-                            text = place.description,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
+                    place.description?.let { description ->
+                        Row {
+                            Text(
+                                text = "Опис: ",
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                            Text(
+                                text = description,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
                     }
                     Text(
                         text = place.excerpt,

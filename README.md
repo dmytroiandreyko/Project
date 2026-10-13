@@ -9,13 +9,15 @@
 4. Налаштування (мова вікі)
 
 ## Джерело даних
-Wikimedia REST API, українська Вікіпедія, ключ не потрібен.
+API української Вікіпедії, ключ не потрібен, тому в `local.properties` нічого дописувати не треба.
 
-- Запит: `https://api.wikimedia.org/core/v1/wikipedia/uk/search/page?q=Львів&limit=20`
-- Масив об'єктів: `pages`
-- Зображення: `thumbnail.url` (може бути `null`, починається з `//`)
-- Інші поля: `id`, `key`, `title`, `description`, `excerpt`
-- Ліміт запитів: загальна межа Wikimedia REST API 200 запитів/с, для анонімних запитів окремо не вказано. Потрібен унікальний заголовок `User-Agent` із контактом.
+- Список: `https://uk.wikipedia.org/w/rest.php/v1/search/page?q=incategory:"Обласні центри України"&limit=20`
+  - категорія «Місто» — `incategory:"Обласні центри України"`
+  - категорія «Пам'ятка» — `incategory:"Пам'ятки архітектури України національного значення"`
+  - «Усі» — обидва запити паралельно
+- Масив об'єктів: `pages`, поля `id`, `key`, `title`, `description`, `excerpt` (HTML), `thumbnail.url` (може бути `null`, починається з `//`)
+- Деталі за id: `https://uk.wikipedia.org/w/api.php?action=query&pageids=3624&prop=extracts|pageimages|description&exintro=1&explaintext=1&pithumbsize=960&format=json&formatversion=2`
+- Ліміт запитів: окремо для анонімних запитів не вказано. Потрібен унікальний заголовок `User-Agent` із контактом.
 
 ## Зберігається локально
 Свій список місць і мова вікі.

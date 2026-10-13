@@ -33,12 +33,8 @@ fun AppNavHost() {
         composable(
             route = Routes.DETAILS,
             arguments = listOf(navArgument(Routes.PLACE_ID_ARG) { type = NavType.IntType })
-        ) { backStackEntry ->
-            val placeId = backStackEntry.arguments?.getInt(Routes.PLACE_ID_ARG) ?: -1
-            DetailsScreen(
-                placeId = placeId,
-                onBackClick = { navController.popBackStack() }
-            )
+        ) {
+            DetailsScreen(onBackClick = { navController.popBackStack() })
         }
     }
 }

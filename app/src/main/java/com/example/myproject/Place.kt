@@ -11,8 +11,9 @@ data class Place(
     val title: String,
     val description: String?,
     val excerpt: String,
-    val category: PlaceCategory,
-    val imageUrl: String?
+    val category: PlaceCategory?,
+    val imageUrl: String?,
+    val distanceMeters: Int? = null
 )
 
 data class PlaceDetails(

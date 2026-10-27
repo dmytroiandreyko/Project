@@ -60,9 +60,9 @@ fun DetailsScreen(
         val modifier = Modifier.padding(padding)
         when (val state = uiState) {
             DetailsUiState.Loading -> Column(modifier) { LoadingState() }
-            DetailsUiState.Error -> Column(modifier) {
+            is DetailsUiState.Error -> Column(modifier) {
                 ErrorState(
-                    message = "Не вдалося завантажити статтю. Перевірте з'єднання з інтернетом.",
+                    message = state.error.message,
                     onRetry = viewModel::onRetry
                 )
             }

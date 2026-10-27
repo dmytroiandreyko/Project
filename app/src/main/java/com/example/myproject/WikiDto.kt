@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class SearchResponseDto(
-    val pages: List<SearchPageDto> = emptyList()
+    val pages: List<SearchPageDto>
 )
 
 @Serializable
@@ -25,7 +25,15 @@ data class SearchThumbnailDto(
 
 @Serializable
 data class PageQueryResponseDto(
-    val query: PageQueryDto? = null
+    val query: PageQueryDto? = null,
+    @SerialName("batchcomplete") val batchComplete: Boolean = false,
+    val error: ApiErrorDto? = null
+)
+
+@Serializable
+data class ApiErrorDto(
+    val code: String? = null,
+    val info: String? = null
 )
 
 @Serializable
@@ -40,7 +48,15 @@ data class PageDto(
     val extract: String? = null,
     val description: String? = null,
     val thumbnail: PageThumbnailDto? = null,
+    val coordinates: List<CoordinatesDto> = emptyList(),
     val missing: Boolean = false
+)
+
+@Serializable
+data class CoordinatesDto(
+    val lat: Double,
+    val lon: Double,
+    val dist: Double? = null
 )
 
 @Serializable

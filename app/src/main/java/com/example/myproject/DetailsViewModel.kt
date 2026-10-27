@@ -12,7 +12,7 @@ import kotlinx.coroutines.launch
 sealed interface DetailsUiState {
     data object Loading : DetailsUiState
     data object NotFound : DetailsUiState
-    data object Error : DetailsUiState
+    data class Error(val error: LoadError) : DetailsUiState
     data class Loaded(val place: PlaceDetails) : DetailsUiState
 }
 
@@ -42,7 +42,7 @@ class DetailsViewModel(savedStateHandle: SavedStateHandle) : ViewModel() {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                DetailsUiState.Error
+                DetailsUiState.Error(e.toLoadError())
             }
         }
     }

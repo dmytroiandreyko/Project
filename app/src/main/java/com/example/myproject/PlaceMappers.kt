@@ -1,5 +1,7 @@
 package com.example.myproject
 
+import kotlin.math.roundToInt
+
 private val htmlTag = Regex("<[^>]*>")
 private val thumbnailWidth = Regex("/\\d+px-")
 
@@ -26,6 +28,21 @@ fun PageDto.toPlaceDetails(): PlaceDetails? {
         description = description?.takeIf { it.isNotBlank() },
         extract = extract?.trim()?.takeIf { it.isNotEmpty() },
         imageUrl = thumbnail?.source?.let(::toAbsoluteUrl)
+    )
+}
+
+fun PageDto.toNearbyPlace(): Place? {
+    val id = pageId ?: return null
+    val title = title?.takeIf { it.isNotBlank() } ?: return null
+    return Place(
+        id = id,
+        key = title.replace(' ', '_'),
+        title = title,
+        description = description?.takeIf { it.isNotBlank() },
+        excerpt = extract?.trim().orEmpty(),
+        category = null,
+        imageUrl = thumbnail?.source?.let(::toAbsoluteUrl),
+        distanceMeters = coordinates.firstOrNull()?.dist?.roundToInt()
     )
 }
 

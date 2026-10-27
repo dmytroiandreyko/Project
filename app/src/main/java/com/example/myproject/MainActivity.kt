@@ -1,8 +1,14 @@
 package com.example.myproject
 
+import android.Manifest
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -28,15 +34,22 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -46,6 +59,8 @@ import coil3.ImageLoader
 import coil3.compose.AsyncImage
 import coil3.compose.setSingletonImageLoaderFactory
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
+import kotlinx.coroutines.launch
+import java.util.Locale
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -74,8 +89,43 @@ fun MainScreen(
     viewModel: MainViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            viewModel.onNearbySelected()
+        } else {
+            scope.launch {
+                val result = snackbarHostState.showSnackbar(
+                    message = "Без доступу до місцезнаходження розділ «Поруч» недоступний",
+                    actionLabel = "Налаштування",
+                    duration = SnackbarDuration.Long
+                )
+                if (result == SnackbarResult.ActionPerformed) {
+                    context.startActivity(
+                        Intent(
+                            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                            Uri.fromParts("package", context.packageName, null)
+                        )
+                    )
+                }
+            }
+        }
+    }
+    val onNearbyClick = {
+        if (LocationProvider(context).hasPermission()) {
+            viewModel.onNearbySelected()
+        } else {
+            locationPermissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+        }
+    }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Міста й пам'ятки") },
@@ -94,15 +144,23 @@ fun MainScreen(
             CategoryFilterRow(
                 categories = uiState.categories,
                 selected = uiState.selectedCategory,
-                onSelect = viewModel::onCategorySelected
+                nearbySelected = uiState.isNearby,
+                onSelect = viewModel::onCategorySelected,
+                onNearbyClick = onNearbyClick
             )
+            val onRetry = if (uiState.isNearby) onNearbyClick else viewModel::onRetry
+            val error = uiState.error
             when {
                 uiState.isLoading -> LoadingState()
-                uiState.errorMessage != null -> ErrorState(
-                    message = uiState.errorMessage.orEmpty(),
-                    onRetry = viewModel::onRetry
+                error != null -> ErrorState(message = error.message, onRetry = onRetry)
+                uiState.places.isEmpty() -> EmptyState(
+                    message = if (uiState.isNearby) {
+                        "У радіусі 10 км немає статей Вікіпедії про місця"
+                    } else {
+                        "Вікіпедія не знайшла статей у цій категорії"
+                    },
+                    onRefresh = onRetry
                 )
-                uiState.places.isEmpty() -> EmptyState()
                 else ->
                     PlacesList(
                         places = uiState.places,
@@ -169,7 +227,7 @@ fun ErrorState(message: String, onRetry: () -> Unit) {
 }
 
 @Composable
-fun EmptyState() {
+fun EmptyState(message: String, onRefresh: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -178,10 +236,16 @@ fun EmptyState() {
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "У цій категорії поки нічого немає",
+            text = message,
             style = MaterialTheme.typography.bodyLarge,
             textAlign = TextAlign.Center
         )
+        OutlinedButton(
+            onClick = onRefresh,
+            modifier = Modifier.padding(top = 16.dp)
+        ) {
+            Text("Оновити")
+        }
     }
 }
 
@@ -214,6 +278,18 @@ fun PlaceCard(place: Place, showDetails: Boolean, onClick: () -> Unit) {
                         .background(Color.Black.copy(alpha = 0.4f))
                         .padding(horizontal = 12.dp, vertical = 6.dp)
                 )
+                place.distanceMeters?.let { distance ->
+                    Text(
+                        text = formatDistance(distance),
+                        color = Color.White,
+                        style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(8.dp)
+                            .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
             }
             if (showDetails) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -241,3 +317,6 @@ fun PlaceCard(place: Place, showDetails: Boolean, onClick: () -> Unit) {
         }
     }
 }
+
+private fun formatDistance(meters: Int): String =
+    if (meters < 1000) "$meters м" else String.format(Locale.getDefault(), "%.1f км", meters / 1000.0)

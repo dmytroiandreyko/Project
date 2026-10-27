@@ -16,9 +16,10 @@ import kotlinx.coroutines.launch
 data class MainUiState(
     val categories: List<PlaceCategory> = PlaceCategory.entries,
     val selectedCategory: PlaceCategory? = null,
+    val isNearby: Boolean = false,
     val places: List<Place> = emptyList(),
     val isLoading: Boolean = false,
-    val errorMessage: String? = null,
+    val error: LoadError? = null,
     val showDetails: Boolean = SettingsRepository.DEFAULT_SHOW_DETAILS
 )
 
@@ -26,6 +27,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val settingsRepository = SettingsRepository(application)
     private val placesRepository = PlacesRepository()
+    private val locationProvider = LocationProvider(application)
     private val state = MutableStateFlow(MainUiState(isLoading = true))
     private var loadJob: Job? = null
 
@@ -41,34 +43,41 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     )
 
     init {
-        loadPlaces(null)
+        loadPlaces()
     }
 
     fun onCategorySelected(category: PlaceCategory?) {
-        state.update { it.copy(selectedCategory = category) }
-        loadPlaces(category)
+        state.update { it.copy(selectedCategory = category, isNearby = false) }
+        loadPlaces()
+    }
+
+    fun onNearbySelected() {
+        state.update { it.copy(selectedCategory = null, isNearby = true) }
+        loadPlaces()
     }
 
     fun onRetry() {
-        loadPlaces(state.value.selectedCategory)
+        loadPlaces()
     }
 
-    private fun loadPlaces(category: PlaceCategory?) {
+    private fun loadPlaces() {
+        val current = state.value
         loadJob?.cancel()
         loadJob = viewModelScope.launch {
-            state.update { it.copy(isLoading = true, errorMessage = null) }
+            state.update { it.copy(isLoading = true, error = null) }
             try {
-                val places = placesRepository.searchPlaces(category)
+                val places = if (current.isNearby) {
+                    val location = locationProvider.getCurrentLocation()
+                    placesRepository.searchNearby(location.latitude, location.longitude)
+                } else {
+                    placesRepository.searchPlaces(current.selectedCategory)
+                }
                 state.update { it.copy(places = places, isLoading = false) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 state.update {
-                    it.copy(
-                        places = emptyList(),
-                        isLoading = false,
-                        errorMessage = "Не вдалося завантажити дані. Перевірте з'єднання з інтернетом."
-                    )
+                    it.copy(places = emptyList(), isLoading = false, error = e.toLoadError())
                 }
             }
         }

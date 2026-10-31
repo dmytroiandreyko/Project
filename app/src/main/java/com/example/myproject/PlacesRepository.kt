@@ -24,6 +24,7 @@ class PlacesRepository(private val api: WikiApi = WikiNetwork.api) {
         api.searchNearby("$latitude|$longitude")
             .pagesOrThrow()
             .mapNotNull { it.toNearbyPlace() }
+            .distinctBy { it.id }
             .sortedBy { it.distanceMeters ?: Int.MAX_VALUE }
 
     private fun PageQueryResponseDto.pagesOrThrow(): List<PageDto> {
@@ -34,5 +35,7 @@ class PlacesRepository(private val api: WikiApi = WikiNetwork.api) {
     }
 
     private suspend fun searchCategory(category: PlaceCategory): List<Place> =
-        api.searchPages(category.searchQuery).pages.mapNotNull { it.toPlace(category) }
+        api.searchPages(category.searchQuery).pages
+            .mapNotNull { it.toPlace(category) }
+            .distinctBy { it.id }
 }

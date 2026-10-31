@@ -21,7 +21,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
@@ -44,6 +46,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -52,6 +55,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -140,7 +144,14 @@ fun MainScreen(
             )
         }
     ) { padding ->
-        Column(modifier = Modifier.padding(padding)) {
+        val listState = rememberSaveable(
+            uiState.selectedCategory,
+            uiState.isNearby,
+            saver = LazyListState.Saver
+        ) {
+            LazyListState()
+        }
+        Column(modifier = Modifier.padding(top = padding.calculateTopPadding())) {
             CategoryFilterRow(
                 categories = uiState.categories,
                 selected = uiState.selectedCategory,
@@ -165,7 +176,9 @@ fun MainScreen(
                     PlacesList(
                         places = uiState.places,
                         showDetails = uiState.showDetails,
-                        onItemClick = onItemClick
+                        onItemClick = onItemClick,
+                        state = listState,
+                        bottomInset = padding.calculateBottomPadding()
                     )
             }
         }
@@ -176,18 +189,31 @@ fun MainScreen(
 fun PlacesList(
     places: List<Place>,
     showDetails: Boolean,
-    onItemClick: (Place) -> Unit
+    onItemClick: (Place) -> Unit,
+    modifier: Modifier = Modifier,
+    state: LazyListState = rememberLazyListState(),
+    bottomInset: Dp = 0.dp
 ) {
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
+        modifier = modifier.fillMaxSize(),
+        state = state,
+        contentPadding = PaddingValues(
+            start = 16.dp,
+            top = 16.dp,
+            end = 16.dp,
+            bottom = 16.dp + bottomInset
+        ),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        items(places, key = { it.id }) { place ->
+        items(
+            items = places,
+            key = { it.id },
+            contentType = { "place" }
+        ) { place ->
             PlaceCard(
                 place = place,
                 showDetails = showDetails,
-                onClick = { onItemClick(place) }
+                onClick = onItemClick
             )
         }
     }
@@ -250,10 +276,15 @@ fun EmptyState(message: String, onRefresh: () -> Unit) {
 }
 
 @Composable
-fun PlaceCard(place: Place, showDetails: Boolean, onClick: () -> Unit) {
+fun PlaceCard(
+    place: Place,
+    showDetails: Boolean,
+    onClick: (Place) -> Unit,
+    modifier: Modifier = Modifier
+) {
     Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+        onClick = { onClick(place) },
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {

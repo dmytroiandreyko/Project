@@ -13,7 +13,7 @@ interface WikiApi {
     @GET("w/rest.php/v1/search/page")
     suspend fun searchPages(
         @Query("q") query: String,
-        @Query("limit") limit: Int = 20
+        @Query("limit") limit: Int = 50
     ): SearchResponseDto
 
     @GET("w/api.php?action=query&prop=extracts|pageimages|description&exintro=1&explaintext=1&pithumbsize=960&format=json&formatversion=2")

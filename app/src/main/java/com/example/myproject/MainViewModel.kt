@@ -19,7 +19,9 @@ data class MainUiState(
     val isNearby: Boolean = false,
     val places: List<Place> = emptyList(),
     val isLoading: Boolean = false,
+    val isRefreshing: Boolean = false,
     val error: LoadError? = null,
+    val refreshError: LoadError? = null,
     val showDetails: Boolean = SettingsRepository.DEFAULT_SHOW_DETAILS
 )
 
@@ -60,11 +62,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         loadPlaces()
     }
 
-    private fun loadPlaces() {
+    fun onRefresh() {
+        loadPlaces(isRefresh = true)
+    }
+
+    fun onRefreshErrorShown() {
+        state.update { it.copy(refreshError = null) }
+    }
+
+    private fun loadPlaces(isRefresh: Boolean = false) {
         val current = state.value
         loadJob?.cancel()
         loadJob = viewModelScope.launch {
-            state.update { it.copy(isLoading = true, error = null) }
+            state.update {
+                if (isRefresh) {
+                    it.copy(isRefreshing = true, refreshError = null)
+                } else {
+                    it.copy(isLoading = true, isRefreshing = false, error = null, refreshError = null)
+                }
+            }
             try {
                 val places = if (current.isNearby) {
                     val location = locationProvider.getCurrentLocation()
@@ -72,12 +88,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 } else {
                     placesRepository.searchPlaces(current.selectedCategory)
                 }
-                state.update { it.copy(places = places, isLoading = false) }
+                state.update {
+                    it.copy(places = places, isLoading = false, isRefreshing = false, error = null)
+                }
+                if (!current.isNearby) {
+                    val detailed = placesRepository.loadMissingDetails(places)
+                    state.update { it.copy(places = detailed) }
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 state.update {
-                    it.copy(places = emptyList(), isLoading = false, error = e.toLoadError())
+                    if (isRefresh && it.places.isNotEmpty() && it.error == null) {
+                        it.copy(isRefreshing = false, refreshError = e.toLoadError())
+                    } else {
+                        it.copy(
+                            places = emptyList(),
+                            isLoading = false,
+                            isRefreshing = false,
+                            error = e.toLoadError()
+                        )
+                    }
                 }
             }
         }

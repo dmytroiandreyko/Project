@@ -1,6 +1,5 @@
 package com.example.myproject
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,12 +21,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil3.compose.AsyncImage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,14 +77,12 @@ fun PlaceDetailsContent(place: PlaceDetails, modifier: Modifier = Modifier) {
             .verticalScroll(rememberScrollState())
     ) {
         if (place.imageUrl != null) {
-            AsyncImage(
-                model = place.imageUrl,
+            PlaceImage(
+                url = place.imageUrl,
                 contentDescription = place.title,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(260.dp)
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                contentScale = ContentScale.Crop
             )
         }
         Column(

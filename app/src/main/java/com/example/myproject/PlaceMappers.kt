@@ -1,5 +1,6 @@
 package com.example.myproject
 
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import kotlin.math.roundToInt
 
 private val htmlTag = Regex("<[^>]*>")
@@ -14,7 +15,7 @@ fun SearchPageDto.toPlace(category: PlaceCategory): Place? {
         description = description?.takeIf { it.isNotBlank() },
         excerpt = excerpt?.let(::stripHtml).orEmpty(),
         category = category,
-        imageUrl = thumbnail?.url?.let { toAbsoluteUrl(it).replace(thumbnailWidth, "/500px-") }
+        imageUrl = normalizeImageUrl(thumbnail?.url)?.replace(thumbnailWidth, "/500px-")
     )
 }
 
@@ -27,7 +28,7 @@ fun PageDto.toPlaceDetails(): PlaceDetails? {
         title = title,
         description = description?.takeIf { it.isNotBlank() },
         extract = extract?.trim()?.takeIf { it.isNotEmpty() },
-        imageUrl = thumbnail?.source?.let(::toAbsoluteUrl)
+        imageUrl = normalizeImageUrl(thumbnail?.source)
     )
 }
 
@@ -41,13 +42,27 @@ fun PageDto.toNearbyPlace(): Place? {
         description = description?.takeIf { it.isNotBlank() },
         excerpt = extract?.trim().orEmpty(),
         category = null,
-        imageUrl = thumbnail?.source?.let(::toAbsoluteUrl),
+        imageUrl = normalizeImageUrl(thumbnail?.source),
         distanceMeters = coordinates.firstOrNull()?.dist?.roundToInt()
     )
 }
 
-private fun toAbsoluteUrl(url: String): String =
-    if (url.startsWith("//")) "https:$url" else url
+fun Place.withDetails(details: PlaceDetails): Place = copy(
+    description = description ?: details.description,
+    excerpt = details.extract ?: excerpt,
+    imageUrl = imageUrl ?: details.imageUrl
+)
+
+fun normalizeImageUrl(raw: String?): String? {
+    val url = raw?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+    val secure = when {
+        url.startsWith("//") -> "https:$url"
+        url.startsWith("http://", ignoreCase = true) -> "https://" + url.substring("http://".length)
+        url.startsWith("https://", ignoreCase = true) -> url
+        else -> return null
+    }
+    return secure.toHttpUrlOrNull()?.toString()
+}
 
 private fun stripHtml(html: String): String =
     html.replace(htmlTag, "")

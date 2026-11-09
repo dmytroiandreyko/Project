@@ -42,7 +42,9 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -51,7 +53,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -60,9 +61,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.ImageLoader
-import coil3.compose.AsyncImage
 import coil3.compose.setSingletonImageLoaderFactory
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
+import coil3.request.crossfade
 import kotlinx.coroutines.launch
 import java.util.Locale
 
@@ -76,6 +77,7 @@ class MainActivity : ComponentActivity() {
                     .components {
                         add(OkHttpNetworkFetcherFactory(callFactory = { WikiNetwork.okHttpClient }))
                     }
+                    .crossfade(true)
                     .build()
             }
             MaterialTheme {
@@ -96,6 +98,12 @@ fun MainScreen(
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+
+    LaunchedEffect(uiState.refreshError) {
+        val refreshError = uiState.refreshError ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(refreshError.message)
+        viewModel.onRefreshErrorShown()
+    }
 
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -161,25 +169,31 @@ fun MainScreen(
             )
             val onRetry = if (uiState.isNearby) onNearbyClick else viewModel::onRetry
             val error = uiState.error
-            when {
-                uiState.isLoading -> LoadingState()
-                error != null -> ErrorState(message = error.message, onRetry = onRetry)
-                uiState.places.isEmpty() -> EmptyState(
-                    message = if (uiState.isNearby) {
-                        "У радіусі 10 км немає статей Вікіпедії про місця"
-                    } else {
-                        "Вікіпедія не знайшла статей у цій категорії"
-                    },
-                    onRefresh = onRetry
-                )
-                else ->
-                    PlacesList(
-                        places = uiState.places,
-                        showDetails = uiState.showDetails,
-                        onItemClick = onItemClick,
-                        state = listState,
-                        bottomInset = padding.calculateBottomPadding()
+            PullToRefreshBox(
+                isRefreshing = uiState.isRefreshing,
+                onRefresh = viewModel::onRefresh,
+                modifier = Modifier.fillMaxSize()
+            ) {
+                when {
+                    uiState.isLoading -> LoadingState()
+                    error != null -> ErrorState(message = error.message, onRetry = onRetry)
+                    uiState.places.isEmpty() -> EmptyState(
+                        message = if (uiState.isNearby) {
+                            "У радіусі 10 км немає статей Вікіпедії про місця"
+                        } else {
+                            "Вікіпедія не знайшла статей у цій категорії"
+                        },
+                        onRefresh = onRetry
                     )
+                    else ->
+                        PlacesList(
+                            places = uiState.places,
+                            showDetails = uiState.showDetails,
+                            onItemClick = onItemClick,
+                            state = listState,
+                            bottomInset = padding.calculateBottomPadding()
+                        )
+                }
             }
         }
     }
@@ -290,15 +304,13 @@ fun PlaceCard(
     ) {
         Column {
             Box {
-                AsyncImage(
-                    model = place.imageUrl,
+                PlaceImage(
+                    url = place.imageUrl,
                     contentDescription = place.title,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(180.dp)
                         .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant),
-                    contentScale = ContentScale.Crop
                 )
                 Text(
                     text = place.title,

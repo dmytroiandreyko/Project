@@ -14,11 +14,12 @@ class PlacesRepository(
 
     private val requestLimit = Semaphore(maxConcurrentRequests)
 
-    suspend fun searchPlaces(category: PlaceCategory?): List<Place> {
-        if (category != null) return searchCategory(category)
+    suspend fun searchPlaces(category: PlaceCategory?, text: String = ""): List<Place> {
+        val trimmed = text.trim()
+        if (category != null) return searchCategory(category, trimmed)
         return coroutineScope {
             PlaceCategory.entries
-                .map { async { searchCategory(it) } }
+                .map { async { searchCategory(it, trimmed) } }
                 .awaitAll()
                 .flatten()
                 .distinctBy { it.id }
@@ -66,8 +67,8 @@ class PlacesRepository(
         throw BadResponseException()
     }
 
-    private suspend fun searchCategory(category: PlaceCategory): List<Place> =
-        limited { api.searchPages(category.searchQuery) }.pages
+    private suspend fun searchCategory(category: PlaceCategory, text: String): List<Place> =
+        limited { api.searchPages(category.searchQueryFor(text)) }.pages
             .mapNotNull { it.toPlace(category) }
             .distinctBy { it.id }
 

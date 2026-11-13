@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -17,13 +18,17 @@ data class MainUiState(
     val categories: List<PlaceCategory> = PlaceCategory.entries,
     val selectedCategory: PlaceCategory? = null,
     val isNearby: Boolean = false,
+    val query: String = "",
+    val activeQuery: String = "",
     val places: List<Place> = emptyList(),
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
     val error: LoadError? = null,
     val refreshError: LoadError? = null,
     val showDetails: Boolean = SettingsRepository.DEFAULT_SHOW_DETAILS
-)
+) {
+    val isSearching: Boolean get() = activeQuery.isNotEmpty()
+}
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -32,6 +37,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val locationProvider = LocationProvider(application)
     private val state = MutableStateFlow(MainUiState(isLoading = true))
     private var loadJob: Job? = null
+    private var searchJob: Job? = null
 
     val uiState: StateFlow<MainUiState> = combine(
         state,
@@ -55,6 +61,37 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun onNearbySelected() {
         state.update { it.copy(selectedCategory = null, isNearby = true) }
+        loadPlaces()
+    }
+
+    fun onQueryChange(text: String) {
+        state.update { it.copy(query = text) }
+        searchJob?.cancel()
+        val trimmed = text.trim()
+        if (trimmed.isEmpty()) {
+            applyQuery("")
+            return
+        }
+        searchJob = viewModelScope.launch {
+            delay(SEARCH_DEBOUNCE_MS)
+            applyQuery(trimmed)
+        }
+    }
+
+    fun onSearchSubmit() {
+        searchJob?.cancel()
+        applyQuery(state.value.query.trim())
+    }
+
+    fun onClearQuery() {
+        onQueryChange("")
+    }
+
+    private fun applyQuery(trimmed: String) {
+        if (trimmed == state.value.activeQuery) return
+        state.update {
+            it.copy(activeQuery = trimmed, isNearby = if (trimmed.isEmpty()) it.isNearby else false)
+        }
         loadPlaces()
     }
 
@@ -82,11 +119,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
             try {
-                val places = if (current.isNearby) {
-                    val location = locationProvider.getCurrentLocation()
-                    placesRepository.searchNearby(location.latitude, location.longitude)
-                } else {
-                    placesRepository.searchPlaces(current.selectedCategory)
+                val places = when {
+                    current.isSearching ->
+                        placesRepository.searchPlaces(current.selectedCategory, current.activeQuery)
+                    current.isNearby -> {
+                        val location = locationProvider.getCurrentLocation()
+                        placesRepository.searchNearby(location.latitude, location.longitude)
+                    }
+                    else -> placesRepository.searchPlaces(current.selectedCategory)
                 }
                 state.update {
                     it.copy(places = places, isLoading = false, isRefreshing = false, error = null)
@@ -112,5 +152,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         }
+    }
+
+    companion object {
+        const val SEARCH_DEBOUNCE_MS = 400L
     }
 }

@@ -24,7 +24,8 @@ fun CategoryFilterRow(
     nearbySelected: Boolean,
     onSelect: (PlaceCategory?) -> Unit,
     onNearbyClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    showNearby: Boolean = true
 ) {
     LazyRow(
         modifier = modifier,
@@ -45,7 +46,7 @@ fun CategoryFilterRow(
                 label = { Text(category.label) }
             )
         }
-        item {
+        if (showNearby) item {
             FilterChip(
                 selected = nearbySelected,
                 onClick = onNearbyClick,

@@ -57,6 +57,39 @@ class PlacesRepositoryTest {
     }
 
     @Test
+    fun search_allCategories_addsTextToEachCategoryQuery() = runBlocking {
+        val api = FakeWikiApi(
+            search = mapOf(
+                "Львів ${PlaceCategory.CITY.searchQuery}" to listOf(page(1)),
+                "Львів ${PlaceCategory.LANDMARK.searchQuery}" to listOf(page(2), page(1))
+            )
+        )
+
+        val places = PlacesRepository(api).searchPlaces(null, "  Львів ")
+
+        assertEquals(listOf(1, 2), places.map { it.id })
+    }
+
+    @Test
+    fun search_selectedCategory_limitsResult() = runBlocking {
+        val api = FakeWikiApi(
+            search = mapOf(
+                "собор ${PlaceCategory.CITY.searchQuery}" to listOf(page(1)),
+                "собор ${PlaceCategory.LANDMARK.searchQuery}" to listOf(page(2))
+            )
+        )
+
+        val places = PlacesRepository(api).searchPlaces(PlaceCategory.LANDMARK, "собор")
+
+        assertEquals(listOf(2), places.map { it.id })
+    }
+
+    @Test
+    fun search_blankText_usesCatalogQuery() {
+        assertEquals(PlaceCategory.CITY.searchQuery, PlaceCategory.CITY.searchQueryFor("   "))
+    }
+
+    @Test
     fun nearby_duplicatePages_haveUniqueIds() = runBlocking {
         val api = FakeWikiApi(
             nearby = listOf(

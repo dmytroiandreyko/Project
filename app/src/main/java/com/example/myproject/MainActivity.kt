@@ -155,17 +155,25 @@ fun MainScreen(
         val listState = rememberSaveable(
             uiState.selectedCategory,
             uiState.isNearby,
+            uiState.activeQuery,
             saver = LazyListState.Saver
         ) {
             LazyListState()
         }
         Column(modifier = Modifier.padding(top = padding.calculateTopPadding())) {
+            SearchField(
+                query = uiState.query,
+                onQueryChange = viewModel::onQueryChange,
+                onSearch = viewModel::onSearchSubmit,
+                onClear = viewModel::onClearQuery
+            )
             CategoryFilterRow(
                 categories = uiState.categories,
                 selected = uiState.selectedCategory,
                 nearbySelected = uiState.isNearby,
                 onSelect = viewModel::onCategorySelected,
-                onNearbyClick = onNearbyClick
+                onNearbyClick = onNearbyClick,
+                showNearby = !uiState.isSearching
             )
             val onRetry = if (uiState.isNearby) onNearbyClick else viewModel::onRetry
             val error = uiState.error
@@ -177,6 +185,11 @@ fun MainScreen(
                 when {
                     uiState.isLoading -> LoadingState()
                     error != null -> ErrorState(message = error.message, onRetry = onRetry)
+                    uiState.places.isEmpty() && uiState.isSearching -> SearchEmptyState(
+                        query = uiState.activeQuery,
+                        category = uiState.selectedCategory,
+                        onClear = viewModel::onClearQuery
+                    )
                     uiState.places.isEmpty() -> EmptyState(
                         message = if (uiState.isNearby) {
                             "У радіусі 10 км немає статей Вікіпедії про місця"
@@ -262,6 +275,39 @@ fun ErrorState(message: String, onRetry: () -> Unit) {
             modifier = Modifier.padding(top = 16.dp)
         ) {
             Text("Спробувати ще раз")
+        }
+    }
+}
+
+@Composable
+fun SearchEmptyState(query: String, category: PlaceCategory?, onClear: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "За запитом «$query» нічого не знайдено",
+            style = MaterialTheme.typography.titleMedium,
+            textAlign = TextAlign.Center
+        )
+        Text(
+            text = if (category != null) {
+                "Шукали в категорії «${category.label}». Спробуйте інше слово або виберіть «Усі»."
+            } else {
+                "Спробуйте інше слово або перевірте написання."
+            },
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 8.dp)
+        )
+        OutlinedButton(
+            onClick = onClear,
+            modifier = Modifier.padding(top = 16.dp)
+        ) {
+            Text("Очистити пошук")
         }
     }
 }

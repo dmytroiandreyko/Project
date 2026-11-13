@@ -3,6 +3,10 @@ package com.example.myproject
 enum class PlaceCategory(val label: String, val searchQuery: String) {
     CITY("Місто", "incategory:\"Обласні центри України\""),
     LANDMARK("Пам'ятка", "incategory:\"Пам'ятки архітектури України національного значення\""),
+    ;
+
+    fun searchQueryFor(text: String): String =
+        if (text.isBlank()) searchQuery else "${text.trim()} $searchQuery"
 }
 
 data class Place(

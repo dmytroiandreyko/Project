@@ -11,12 +11,15 @@ class PlacesRepositoryTest {
     private class FakeWikiApi(
         private val search: Map<String, List<SearchPageDto>> = emptyMap(),
         private val nearby: List<PageDto> = emptyList(),
-        private val page: suspend (Int) -> PageQueryResponseDto = { PageQueryResponseDto(batchComplete = true) }
+        private val page: suspend (Int) -> PageQueryResponseDto = { PageQueryResponseDto(batchComplete = true) },
+        private val pages: suspend (String) -> PageQueryResponseDto = { PageQueryResponseDto(batchComplete = true) }
     ) : WikiApi {
         override suspend fun searchPages(query: String, limit: Int) =
             SearchResponseDto(search[query].orEmpty())
 
         override suspend fun getPage(pageId: Int) = page(pageId)
+
+        override suspend fun getPages(pageIds: String) = pages(pageIds)
 
         override suspend fun searchNearby(coordinates: String, distanceFrom: String) =
             PageQueryResponseDto(query = PageQueryDto(nearby))
@@ -161,5 +164,39 @@ class PlacesRepositoryTest {
         val dto = SearchPageDto(id = 1, title = "А", thumbnail = SearchThumbnailDto("http://upload.wikimedia.org/x/60px-A.jpg"))
 
         assertEquals("https://upload.wikimedia.org/x/500px-A.jpg", dto.toPlace(PlaceCategory.CITY)?.imageUrl)
+    }
+
+    @Test
+    fun byIds_largeSet_isSplitIntoBatches() = runBlocking {
+        val batchSizes = mutableListOf<Int>()
+        val api = FakeWikiApi(pages = { ids ->
+            val chunk = ids.split("|").map(String::toInt)
+            synchronized(batchSizes) { batchSizes += chunk.size }
+            PageQueryResponseDto(query = PageQueryDto(chunk.map { PageDto(pageId = it, title = "Сторінка $it") }))
+        })
+
+        val places = PlacesRepository(api).getPlacesByIds((1..45).toList())
+
+        assertEquals(listOf(5, 20, 20), batchSizes.sorted())
+        assertEquals((1..45).toSet(), places.map { it.id }.toSet())
+    }
+
+    @Test
+    fun byIds_missingPage_isSkipped() = runBlocking {
+        val api = FakeWikiApi(pages = {
+            PageQueryResponseDto(
+                query = PageQueryDto(
+                    listOf(
+                        PageDto(pageId = 1, title = "Київ", extract = "Столиця"),
+                        PageDto(pageId = 2, title = "Видалена", missing = true)
+                    )
+                )
+            )
+        })
+
+        val places = PlacesRepository(api).getPlacesByIds(listOf(1, 2))
+
+        assertEquals(listOf(1), places.map { it.id })
+        assertEquals("Столиця", places.single().excerpt)
     }
 }

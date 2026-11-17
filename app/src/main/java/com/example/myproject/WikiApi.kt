@@ -21,6 +21,11 @@ interface WikiApi {
         @Query("pageids") pageId: Int
     ): PageQueryResponseDto
 
+    @GET("w/api.php?action=query&prop=extracts|pageimages|description&exintro=1&explaintext=1&exlimit=20&pithumbsize=500&format=json&formatversion=2")
+    suspend fun getPages(
+        @Query("pageids") pageIds: String
+    ): PageQueryResponseDto
+
     @GET("w/api.php?action=query&generator=geosearch&ggsradius=10000&ggslimit=20&prop=extracts|pageimages|description|coordinates&exintro=1&explaintext=1&exlimit=20&pithumbsize=500&format=json&formatversion=2")
     suspend fun searchNearby(
         @Query("ggscoord") coordinates: String,

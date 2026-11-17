@@ -32,7 +32,8 @@ fun PageDto.toPlaceDetails(): PlaceDetails? {
     )
 }
 
-fun PageDto.toNearbyPlace(): Place? {
+fun PageDto.toPlace(): Place? {
+    if (missing) return null
     val id = pageId ?: return null
     val title = title?.takeIf { it.isNotBlank() } ?: return null
     return Place(
@@ -42,10 +43,12 @@ fun PageDto.toNearbyPlace(): Place? {
         description = description?.takeIf { it.isNotBlank() },
         excerpt = extract?.trim().orEmpty(),
         category = null,
-        imageUrl = normalizeImageUrl(thumbnail?.source),
-        distanceMeters = coordinates.firstOrNull()?.dist?.roundToInt()
+        imageUrl = normalizeImageUrl(thumbnail?.source)
     )
 }
+
+fun PageDto.toNearbyPlace(): Place? =
+    toPlace()?.copy(distanceMeters = coordinates.firstOrNull()?.dist?.roundToInt())
 
 fun Place.withDetails(details: PlaceDetails): Place = copy(
     description = description ?: details.description,

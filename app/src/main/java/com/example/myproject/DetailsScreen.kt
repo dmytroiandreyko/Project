@@ -22,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -33,6 +34,7 @@ fun DetailsScreen(
     viewModel: DetailsViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val isFavorite by viewModel.isFavorite.collectAsStateWithLifecycle()
     val title = when (val state = uiState) {
         is DetailsUiState.Loaded -> state.place.title
         DetailsUiState.NotFound -> "Не знайдено"
@@ -42,12 +44,20 @@ fun DetailsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(title) },
+                title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Назад"
+                        )
+                    }
+                },
+                actions = {
+                    if (uiState is DetailsUiState.Loaded || isFavorite) {
+                        FavoriteButton(
+                            isFavorite = isFavorite,
+                            onClick = viewModel::onToggleFavorite
                         )
                     }
                 }

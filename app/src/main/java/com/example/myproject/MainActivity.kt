@@ -26,6 +26,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -33,6 +35,9 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonColors
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -92,6 +97,7 @@ class MainActivity : ComponentActivity() {
 fun MainScreen(
     onItemClick: (Place) -> Unit,
     onSettingsClick: () -> Unit,
+    onFavoritesClick: () -> Unit,
     viewModel: MainViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -142,6 +148,12 @@ fun MainScreen(
             TopAppBar(
                 title = { Text("Міста й пам'ятки") },
                 actions = {
+                    IconButton(onClick = onFavoritesClick) {
+                        Icon(
+                            imageVector = Icons.Filled.Favorite,
+                            contentDescription = "Моя добірка"
+                        )
+                    }
                     IconButton(onClick = onSettingsClick) {
                         Icon(
                             imageVector = Icons.Filled.Settings,
@@ -202,7 +214,9 @@ fun MainScreen(
                         PlacesList(
                             places = uiState.places,
                             showDetails = uiState.showDetails,
+                            favoriteIds = uiState.favoriteIds,
                             onItemClick = onItemClick,
+                            onFavoriteClick = viewModel::onToggleFavorite,
                             state = listState,
                             bottomInset = padding.calculateBottomPadding()
                         )
@@ -216,7 +230,9 @@ fun MainScreen(
 fun PlacesList(
     places: List<Place>,
     showDetails: Boolean,
+    favoriteIds: Set<Int>,
     onItemClick: (Place) -> Unit,
+    onFavoriteClick: (Place) -> Unit,
     modifier: Modifier = Modifier,
     state: LazyListState = rememberLazyListState(),
     bottomInset: Dp = 0.dp
@@ -240,7 +256,9 @@ fun PlacesList(
             PlaceCard(
                 place = place,
                 showDetails = showDetails,
-                onClick = onItemClick
+                isFavorite = place.id in favoriteIds,
+                onClick = onItemClick,
+                onFavoriteClick = onFavoriteClick
             )
         }
     }
@@ -339,7 +357,9 @@ fun EmptyState(message: String, onRefresh: () -> Unit) {
 fun PlaceCard(
     place: Place,
     showDetails: Boolean,
+    isFavorite: Boolean,
     onClick: (Place) -> Unit,
+    onFavoriteClick: (Place) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -366,6 +386,17 @@ fun PlaceCard(
                         .align(Alignment.BottomStart)
                         .background(Color.Black.copy(alpha = 0.4f))
                         .padding(horizontal = 12.dp, vertical = 6.dp)
+                )
+                FavoriteButton(
+                    isFavorite = isFavorite,
+                    onClick = { onFavoriteClick(place) },
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(4.dp),
+                    colors = IconButtonDefaults.iconButtonColors(
+                        containerColor = Color.Black.copy(alpha = 0.4f),
+                        contentColor = Color.White
+                    )
                 )
                 place.distanceMeters?.let { distance ->
                     Text(
@@ -406,6 +437,24 @@ fun PlaceCard(
         }
     }
 }
+
+@Composable
+fun FavoriteButton(
+    isFavorite: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    colors: IconButtonColors = IconButtonDefaults.iconButtonColors()
+) {
+    IconButton(onClick = onClick, modifier = modifier, colors = colors) {
+        Icon(
+            imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+            contentDescription = if (isFavorite) "Прибрати з добірки" else "Додати до добірки",
+            tint = if (isFavorite) FavoriteColor else LocalContentColor.current
+        )
+    }
+}
+
+private val FavoriteColor = Color(0xFFE53935)
 
 private fun formatDistance(meters: Int): String =
     if (meters < 1000) "$meters м" else String.format(Locale.getDefault(), "%.1f км", meters / 1000.0)

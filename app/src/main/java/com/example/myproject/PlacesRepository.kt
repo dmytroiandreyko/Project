@@ -41,6 +41,21 @@ class PlacesRepository(
     suspend fun getPlaceDetails(id: Int): PlaceDetails? =
         limited { api.getPage(id) }.pagesOrThrow().firstOrNull()?.toPlaceDetails()
 
+    suspend fun getPlacesByIds(ids: Collection<Int>): List<Place> = coroutineScope {
+        ids.distinct()
+            .chunked(PAGES_PER_REQUEST)
+            .map { chunk ->
+                async {
+                    limited { api.getPages(chunk.joinToString("|")) }
+                        .pagesOrThrow()
+                        .mapNotNull { it.toPlace() }
+                }
+            }
+            .awaitAll()
+            .flatten()
+            .distinctBy { it.id }
+    }
+
     suspend fun searchNearby(latitude: Double, longitude: Double): List<Place> =
         limited { api.searchNearby("$latitude|$longitude") }
             .pagesOrThrow()
@@ -75,5 +90,6 @@ class PlacesRepository(
     companion object {
         const val MAX_CONCURRENT_REQUESTS = 4
         const val DETAILS_PREFETCH_COUNT = 12
+        const val PAGES_PER_REQUEST = 20
     }
 }

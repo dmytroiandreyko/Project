@@ -25,7 +25,8 @@ data class MainUiState(
     val isRefreshing: Boolean = false,
     val error: LoadError? = null,
     val refreshError: LoadError? = null,
-    val showDetails: Boolean = SettingsRepository.DEFAULT_SHOW_DETAILS
+    val showDetails: Boolean = SettingsRepository.DEFAULT_SHOW_DETAILS,
+    val favoriteIds: Set<Int> = emptySet()
 ) {
     val isSearching: Boolean get() = activeQuery.isNotEmpty()
 }
@@ -33,6 +34,7 @@ data class MainUiState(
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val settingsRepository = SettingsRepository(application)
+    private val favoritesRepository = FavoritesRepository(application)
     private val placesRepository = PlacesRepository()
     private val locationProvider = LocationProvider(application)
     private val state = MutableStateFlow(MainUiState(isLoading = true))
@@ -41,9 +43,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     val uiState: StateFlow<MainUiState> = combine(
         state,
-        settingsRepository.showDetails
-    ) { current, showDetails ->
-        current.copy(showDetails = showDetails)
+        settingsRepository.showDetails,
+        favoritesRepository.favoriteIds
+    ) { current, showDetails, favoriteIds ->
+        current.copy(showDetails = showDetails, favoriteIds = favoriteIds)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
@@ -93,6 +96,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             it.copy(activeQuery = trimmed, isNearby = if (trimmed.isEmpty()) it.isNearby else false)
         }
         loadPlaces()
+    }
+
+    fun onToggleFavorite(place: Place) {
+        viewModelScope.launch { favoritesRepository.toggle(place.id) }
     }
 
     fun onRetry() {
